@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locker Room — Assignment Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --steel-900:#1b1e22;
+    --steel-800:#262a2f;
+    --steel-700:#343940;
+    --steel-100:#eef0ee;
+    --plate:#f7f4ea;
+    --brass:#c8912f;
+    --brass-deep:#9c6c1f;
+    --moss:#3e6b52;
+    --moss-deep:#2c4d3b;
+    --ink:#1b1e22;
+    --paper:#f3f1e9;
+    --rule:#d8d2c0;
+    --danger:#a33d2f;
+    --shadow: 0 1px 0 rgba(0,0,0,.05), 0 8px 20px -12px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(180deg, var(--steel-900) 0%, var(--steel-900) 220px, var(--paper) 220px, var(--paper) 100%);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 80px;}
+
+  /* ===== Header ===== */
+  header.top{
+    padding:34px 0 26px;
+    display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;
+  }
+  .brand{color:var(--plate);}
+  .brand .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--brass);margin:0 0 6px;
+  }
+  .brand h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:clamp(30px,4.5vw,46px);
+    letter-spacing:.01em;
+    margin:0;
+    text-transform:uppercase;
+  }
+  .stat-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat-plate{
+    background:var(--steel-800);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:6px;
+    padding:10px 16px;
+    min-width:88px;
+    text-align:center;
+  }
+  .stat-plate .n{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:22px;font-weight:600;color:var(--plate);
+    display:block;line-height:1.1;
+  }
+  .stat-plate .l{
+    font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    color:#9a9f9f;
+  }
+  .stat-plate.open .n{color:#7fd9ab;}
+  .stat-plate.taken .n{color:var(--brass);}
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    margin-top:-30px;
+    background:var(--plate);
+    border:1px solid var(--rule);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    padding:16px;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    position:relative;z-index:2;
+  }
+  .search-box{
+    flex:1 1 240px;
+    display:flex;align-items:center;gap:8px;
+    background:#fff;border:1px solid var(--rule);border-radius:7px;
+    padding:9px 12px;
+  }
+  .search-box input{
+    border:none;outline:none;flex:1;font-family:'Inter',sans-serif;font-size:14px;background:transparent;
+  }
+  .search-box svg{flex:none;opacity:.5;}
+  .filters{display:flex;gap:6px;}
+  .chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;letter-spacing:.04em;
+    padding:8px 13px;border-radius:7px;border:1px solid var(--rule);
+    background:#fff;cursor:pointer;color:var(--ink);
+    transition:.12s;
+  }
+  .chip:hover{border-color:var(--steel-700);}
+  .chip.active{background:var(--steel-900);color:var(--plate);border-color:var(--steel-900);}
+  .toolbar-actions{display:flex;gap:8px;}
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;
+    border:1px solid var(--steel-900);border-radius:7px;
+    padding:9px 15px;cursor:pointer;background:var(--steel-900);color:var(--plate);
+    display:inline-flex;align-items:center;gap:7px;transition:.12s;
+    white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 4px 10px -4px rgba(0,0,0,.4);}
+  .btn.ghost{background:transparent;color:var(--steel-900);}
+  .btn.brass{background:var(--brass);border-color:var(--brass-deep);color:#2b1e05;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  .btn svg{flex:none;}
+
+  /* ===== Unsaved banner ===== */
+  .dirty-banner{
+    display:none;
+    margin-top:14px;
+    background:#fbeecd;border:1px solid #e3c27a;color:#5c4210;
+    border-radius:8px;padding:11px 16px;
+    align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-size:13px;
+  }
+  .dirty-banner.show{display:flex;}
+  .dirty-banner strong{font-family:'IBM Plex Mono',monospace;}
+
+  /* ===== Empty state ===== */
+  .empty{
+    margin-top:60px;text-align:center;padding:60px 20px;
+    border:1px dashed var(--rule);border-radius:12px;background:var(--plate);
+  }
+  .empty h2{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:24px;margin:14px 0 6px;}
+  .empty p{color:#666;max-width:440px;margin:0 auto 26px;font-size:14px;line-height:1.6;}
+  .empty-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .locker-icon{opacity:.85;}
+
+  /* ===== Grid ===== */
+  .grid{
+    margin-top:22px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+    gap:12px;
+  }
+  .locker{
+    position:relative;
+    background: repeating-linear-gradient(90deg, var(--steel-700) 0 3px, var(--steel-800) 3px 6px);
+    border-radius:6px;
+    border:1px solid #10120f;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), var(--shadow);
+    padding:10px;
+    cursor:pointer;
+    transition:transform .1s ease;
+    min-height:96px;
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .locker:hover{transform:translateY(-2px);}
+  .locker .plate{
+    align-self:flex-start;
+    background:var(--plate);
+    color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;font-size:15px;
+    border-radius:4px;
+    padding:3px 8px;
+    box-shadow:var(--shadow);
+  }
+  .locker .who{
+    color:#e9e9e6;font-size:12px;font-weight:500;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .locker .pill{
+    align-self:flex-start;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 7px;border-radius:20px;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .locker.open .pill{background:rgba(127,217,171,.16);color:#8fe4b7;}
+  .locker.taken .pill{background:rgba(200,145,47,.2);color:#e3b563;}
+  .locker.taken{background: repeating-linear-gradient(90deg, #3a3226 0 3px, #2c261c 3px 6px);}
+
+  .no-results{grid-column:1/-1;text-align:center;color:#8a8f8a;padding:40px 0;font-size:14px;}
+
+  /* ===== Side panel ===== */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,20,18,.45);
+    display:none;z-index:20;
+  }
+  .overlay.show{display:block;}
+  .panel{
+    position:fixed;top:0;right:0;height:100%;width:min(400px,92vw);
+    background:var(--paper);
+    box-shadow:-14px 0 40px -14px rgba(0,0,0,.5);
+    transform:translateX(100%);
+    transition:transform .22s cubic-bezier(.2,.7,.3,1);
+    z-index:21;
+    display:flex;flex-direction:column;
+  }
+  .panel.show{transform:translateX(0);}
+  .panel-head{
+    background:var(--steel-900);color:var(--plate);
+    padding:22px 22px 18px;
+    display:flex;justify-content:space-between;align-items:flex-start;
+  }
+  .panel-head .plate-big{
+    font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:26px;
+    background:var(--plate);color:var(--ink);border-radius:5px;padding:4px 12px;display:inline-block;
+  }
+  .panel-head .close{background:none;border:none;color:var(--plate);cursor:pointer;opacity:.7;padding:4px;}
+  .panel-head .close:hover{opacity:1;}
+  .panel-body{padding:22px;overflow-y:auto;flex:1;}
+  .field{margin-bottom:18px;}
+  .field label{
+    display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    letter-spacing:.12em;text-transform:uppercase;color:#7c7a6c;margin-bottom:6px;
+  }
+  .field input, .field textarea, .field select{
+    width:100%;border:1px solid var(--rule);border-radius:7px;padding:10px 12px;
+    font-family:'Inter',sans-serif;font-size:14px;background:#fff;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+  .combo-row{display:flex;gap:8px;}
+  .combo-row input{font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;}
+  .eye-btn{
+    border:1px solid var(--rule);background:#fff;border-radius:7px;padding:0 12px;cursor:pointer;
+  }
+  .status-toggle{display:flex;gap:8px;}
+  .status-toggle button{
+    flex:1;padding:10px;border-radius:7px;border:1px solid var(--rule);background:#fff;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    cursor:pointer;
+  }
+  .status-toggle button.sel-open{background:var(--moss);color:#fff;border-color:var(--moss-deep);}
+  .status-toggle button.sel-taken{background:var(--brass);color:#2b1e05;border-color:var(--brass-deep);}
+  .panel-foot{padding:16px 22px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;gap:10px;}
+
+  /* ===== Import modal ===== */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(20,20,18,.55);
+    display:none;align-items:center;justify-content:center;z-index:30;padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    background:var(--paper);border-radius:12px;max-width:520px;width:100%;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.5);
+    max-height:88vh;overflow-y:auto;
+  }
+  .modal-head{padding:20px 24px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{font-family:'Oswald',sans-serif;text-transform:uppercase;margin:0;font-size:19px;}
+  .modal-head .close{background:none;border:none;cursor:pointer;opacity:.6;}
+  .modal-body{padding:22px 24px;}
+  .tabs{display:flex;gap:6px;margin-bottom:18px;}
+  .tab{flex:1;padding:9px;border-radius:7px;border:1px solid var(--rule);background:#fff;cursor:pointer;
+    font-size:13px;font-weight:600;text-align:center;}
+  .tab.active{background:var(--steel-900);color:var(--plate);border-color:var(--steel-900);}
+  .tab-pane{display:none;}
+  .tab-pane.active{display:block;}
+  .drop-zone{
+    border:2px dashed var(--rule);border-radius:10px;padding:34px 20px;text-align:center;
+    cursor:pointer;transition:.12s;
+  }
+  .drop-zone:hover, .drop-zone.drag{border-color:var(--brass);background:#fdf7ea;}
+  .drop-zone p{margin:10px 0 0;color:#666;font-size:13px;}
+  .hint{font-size:12px;color:#7c7a6c;margin-top:10px;line-height:1.6;}
+  .map-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;margin-bottom:10px;}
+  .map-row label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;}
+  .error-box{background:#fbe4df;border:1px solid #e3a293;color:#7a2c1c;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+  .error-box.show{display:block;}
+
+  ::selection{background:var(--brass);color:#2b1e05;}
+  @media (max-width:640px){
+    .toolbar{margin-top:14px;}
+    header.top{padding-top:24px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow">Assignment Board</p>
+      <h1>Locker Room</h1>
+    </div>
+    <div class="stat-row">
+      <div class="stat-plate"><span class="n" id="statTotal">0</span><span class="l">Total</span></div>
+      <div class="stat-plate open"><span class="n" id="statOpen">0</span><span class="l">Open</span></div>
+      <div class="stat-plate taken"><span class="n" id="statTaken">0</span><span class="l">Taken</span></div>
+    </div>
+  </header>
+
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <div class="search-box">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="searchInput" placeholder="Search by locker number or name…">
+    </div>
+    <div class="filters">
+      <button class="chip active" data-filter="all">All</button>
+      <button class="chip" data-filter="open">Open</button>
+      <button class="chip" data-filter="taken">Taken</button>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn ghost" id="reimportBtn">Import New Sheet</button>
+      <button class="btn brass" id="exportBtn">Export Updates</button>
+    </div>
+  </div>
+
+  <div class="dirty-banner" id="dirtyBanner">
+    <span>You have <strong id="dirtyCount">0</strong> unsaved change(s). Export the updated file and re-upload it to Google Sheets to keep them.</span>
+    <button class="btn brass" id="dirtyExportBtn" style="padding:7px 13px;">Export Now</button>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <svg class="locker-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#c8912f" stroke-width="1.5">
+      <rect x="4" y="2" width="16" height="20" rx="1.5"/><line x1="4" y1="8" x2="20" y2="8"/><circle cx="16" cy="14" r="1.4" fill="#c8912f" stroke="none"/>
+    </svg>
+    <h2>No lockers loaded yet</h2>
+    <p>Bring in your locker list from Google Sheets and this turns into a live board — search any locker, see who has it, and open combinations in one click.</p>
+    <div class="empty-actions">
+      <button class="btn brass" id="emptyImportBtn">Import Locker Sheet</button>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- Detail panel -->
+<div class="overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#9a9f9f;margin-bottom:6px;">Locker</div>
+      <div class="plate-big" id="panelNumber">—</div>
+    </div>
+    <button class="close" id="panelClose">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="panel-body">
+    <div class="field">
+      <label>Status</label>
+      <div class="status-toggle">
+        <button type="button" id="setOpenBtn">Open</button>
+        <button type="button" id="setTakenBtn">Taken</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Student Name</label>
+      <input type="text" id="panelName" placeholder="—">
+    </div>
+    <div class="field">
+      <label>Combination</label>
+      <div class="combo-row">
+        <input type="password" id="panelCombo" placeholder="—">
+        <button type="button" class="eye-btn" id="comboEye">👁</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Section / Grade</label>
+      <input type="text" id="panelSection" placeholder="—">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="panelNotes" placeholder="—"></textarea>
+    </div>
+  </div>
+  <div class="panel-foot">
+    <button class="btn ghost" id="panelRelease">Release Locker</button>
+    <button class="btn brass" id="panelSave">Save</button>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Import Locker Sheet</h3>
+      <button class="close" id="modalClose">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="error-box" id="importError"></div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="file">Upload File</div>
+        <div class="tab" data-tab="csv">Published Sheet Link</div>
+      </div>
+
+      <div class="tab-pane active" id="tab-file">
+        <div class="drop-zone" id="dropZone">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#9c6c1f" stroke-width="1.6"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          <p><strong>Click to choose</strong> or drop a .xlsx / .csv file here</p>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+        <p class="hint">In Google Sheets: File → Download → Microsoft Excel (.xlsx) or Comma-separated values (.csv). Nothing leaves your browser — the file is read locally.</p>
+      </div>
+
+      <div class="tab-pane" id="tab-csv">
+        <div class="field" style="margin-bottom:10px;">
+          <label>Published CSV URL</label>
+          <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/…/pub?output=csv">
+        </div>
+        <button class="btn brass" id="fetchCsvBtn">Fetch Sheet</button>
+        <p class="hint">In Google Sheets: File → Share → Publish to web → choose <strong>Comma-separated values (.csv)</strong> → Publish, then paste the link here. This is read-only — assignments you make here won't write back automatically; export and re-upload to keep them.</p>
+      </div>
+
+      <div id="mappingSection" style="display:none;margin-top:20px;padding-top:18px;border-top:1px solid var(--rule);">
+        <p style="font-size:13px;font-weight:600;margin:0 0 14px;">Match your columns</p>
+        <div class="map-row"><label>Locker #</label><select id="mapNumber"></select></div>
+        <div class="map-row"><label>Name</label><select id="mapName"></select></div>
+        <div class="map-row"><label>Combo</label><select id="mapCombo"></select></div>
+        <div class="map-row"><label>Status</label><select id="mapStatus"></select></div>
+        <div class="map-row"><label>Section</label><select id="mapSection"></select></div>
+        <div class="map-row"><label>Notes</label><select id="mapNotes"></select></div>
+        <button class="btn brass" id="confirmImportBtn" style="width:100%;margin-top:12px;justify-content:center;">Load Lockers</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  let lockers = [];      // {id, number, name, combo, status, section, notes}
+  let rawRows = [];       // parsed sheet rows, header-keyed, pending mapping
+  let headers = [];
+  let currentFilter = "all";
+  let searchTerm = "";
+  let activeLockerId = null;
+  let dirtyCount = 0;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Utility ----------
+  function guessCol(cands, list){
+    const lower = list.map(h => h.toLowerCase().trim());
+    for (const cand of cands){
+      const idx = lower.findIndex(h => h === cand);
+      if (idx !== -1) return list[idx];
+    }
+    for (const cand of cands){
+      const idx = lower.findIndex(h => h.includes(cand));
+      if (idx !== -1) return list[idx];
+    }
+    return "";
+  }
+
+  function showError(msg){
+    const box = $("importError");
+    box.textContent = msg;
+    box.classList.add("show");
+  }
+  function clearError(){
+    $("importError").classList.remove("show");
+  }
+
+  // ---------- Modal open/close ----------
+  function openModal(){ $("modalOverlay").classList.add("show"); clearError(); }
+  function closeModal(){ $("modalOverlay").classList.remove("show"); }
+  $("emptyImportBtn").addEventListener("click", openModal);
+  $("reimportBtn").addEventListener("click", openModal);
+  $("modalClose").addEventListener("click", closeModal);
+  $("modalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="modalOverlay") closeModal(); });
+
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p=>p.classList.remove("active"));
+      tab.classList.add("active");
+      $("tab-"+tab.dataset.tab).classList.add("active");
+      clearError();
+    });
+  });
+
+  // ---------- File upload ----------
+  const dropZone = $("dropZone");
+  const fileInput = $("fileInput");
+  dropZone.addEventListener("click", ()=>fileInput.click());
+  dropZone.addEventListener("dragover", (e)=>{e.preventDefault(); dropZone.classList.add("drag");});
+  dropZone.addEventListener("dragleave", ()=>dropZone.classList.remove("drag"));
+  dropZone.addEventListener("drop", (e)=>{
+    e.preventDefault(); dropZone.classList.remove("drag");
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", (e)=>{
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file){
+    clearError();
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:"array"});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+        ingestRows(json);
+      }catch(err){
+        showError("Couldn't read that file. Make sure it's a valid .xlsx or .csv export.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- Published CSV link ----------
+  $("fetchCsvBtn").addEventListener("click", async ()=>{
+    clearError();
+    let url = $("csvUrlInput").value.trim();
+    if (!url){ showError("Paste a published CSV link first."); return; }
+    $("fetchCsvBtn").textContent = "Fetching…";
+    $("fetchCsvBtn").disabled = true;
+    try{
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("bad status");
+      const text = await res.text();
+      const wb = XLSX.read(text, {type:"string"});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+      ingestRows(json);
+    }catch(err){
+      showError("Couldn't fetch that link — make sure it's published as CSV (File → Share → Publish to web) and set to public. If it keeps failing, download the sheet and use Upload File instead.");
+    }finally{
+      $("fetchCsvBtn").textContent = "Fetch Sheet";
+      $("fetchCsvBtn").disabled = false;
+    }
+  });
+
+  // ---------- Ingest + column mapping ----------
+  function ingestRows(json){
+    if (!json.length){ showError("That sheet looks empty."); return; }
+    rawRows = json;
+    headers = Object.keys(json[0]);
+
+    const selects = {
+      mapNumber: guessCol(["locker","locker #","locker number","number","no","#"], headers),
+      mapName: guessCol(["name","student","student name","assigned to","owner"], headers),
+      mapCombo: guessCol(["combo","combination","code","lock code"], headers),
+      mapStatus: guessCol(["status"], headers),
+      mapSection: guessCol(["section","grade","class","homeroom"], headers),
+      mapNotes: guessCol(["notes","note","comment","comments"], headers),
+    };
+
+    Object.entries(selects).forEach(([id, guess])=>{
+      const sel = $(id);
+      sel.innerHTML = "";
+      const noneOpt = document.createElement("option");
+      noneOpt.value = ""; noneOpt.textContent = "— none —";
+      sel.appendChild(noneOpt);
+      headers.forEach(h=>{
+        const opt = document.createElement("option");
+        opt.value = h; opt.textContent = h;
+        if (h === guess) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    });
+
+    $("mappingSection").style.display = "block";
+  }
+
+  $("confirmImportBtn").addEventListener("click", ()=>{
+    const colNumber = $("mapNumber").value;
+    if (!colNumber){ showError("You need to pick a column for Locker Number."); return; }
+    const colName = $("mapName").value;
+    const colCombo = $("mapCombo").value;
+    const colStatus = $("mapStatus").value;
+    const colSection = $("mapSection").value;
+    const colNotes = $("mapNotes").value;
+
+    lockers = rawRows.map((row, i)=>{
+      const name = colName ? String(row[colName] ?? "").trim() : "";
+      let status;
+      if (colStatus && String(row[colStatus]).trim() !== ""){
+        const v = String(row[colStatus]).toLowerCase();
+        status = /open|free|avail|vacant|empty/.test(v) ? "open" : "taken";
+      } else {
+        status = name ? "taken" : "open";
+      }
+      return {
+        id: "L"+i,
+        number: String(row[colNumber] ?? "").trim(),
+        name,
+        combo: colCombo ? String(row[colCombo] ?? "").trim() : "",
+        status,
+        section: colSection ? String(row[colSection] ?? "").trim() : "",
+        notes: colNotes ? String(row[colNotes] ?? "").trim() : "",
+      };
+    }).filter(l => l.number !== "");
+
+    dirtyCount = 0;
+    updateDirtyBanner();
+    closeModal();
+    $("toolbar").style.display = "flex";
+    $("emptyState").style.display = "none";
+    render();
+  });
+
+  // ---------- Rendering ----------
+  function updateStats(){
+    $("statTotal").textContent = lockers.length;
+    $("statOpen").textContent = lockers.filter(l=>l.status==="open").length;
+    $("statTaken").textContent = lockers.filter(l=>l.status==="taken").length;
+  }
+
+  function matchesFilter(l){
+    if (currentFilter !== "all" && l.status !== currentFilter) return false;
+    if (searchTerm){
+      const t = searchTerm.toLowerCase();
+      return l.number.toLowerCase().includes(t) || l.name.toLowerCase().includes(t);
+    }
+    return true;
+  }
+
+  function render(){
+    updateStats();
+    const grid = $("grid");
+    grid.innerHTML = "";
+    const visible = lockers.filter(matchesFilter);
+    if (!visible.length){
+      grid.innerHTML = '<div class="no-results">No lockers match that search.</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    visible.forEach(l=>{
+      const card = document.createElement("div");
+      card.className = "locker " + l.status;
+      card.dataset.id = l.id;
+      card.innerHTML = `
+        <span class="plate">${escapeHtml(l.number)}</span>
+        <span class="who">${l.status==="taken" ? escapeHtml(l.name || "Unnamed") : "&nbsp;"}</span>
+        <span class="pill">${l.status==="open" ? "● Open" : "● Taken"}</span>
+      `;
+      card.addEventListener("click", ()=>openPanel(l.id));
+      frag.appendChild(card);
+    });
+    grid.appendChild(frag);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  // ---------- Search / filter ----------
+  $("searchInput").addEventListener("input", (e)=>{ searchTerm = e.target.value; render(); });
+  document.querySelectorAll(".chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{
+      document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+      chip.classList.add("active");
+      currentFilter = chip.dataset.filter;
+      render();
+    });
+  });
+
+  // ---------- Detail panel ----------
+  let pendingStatus = "open";
+
+  function openPanel(id){
+    activeLockerId = id;
+    const l = lockers.find(x=>x.id===id);
+    $("panelNumber").textContent = l.number;
+    $("panelName").value = l.name;
+    $("panelCombo").value = l.combo;
+    $("panelCombo").type = "password";
+    $("comboEye").textContent = "👁";
+    $("panelSection").value = l.section;
+    $("panelNotes").value = l.notes;
+    pendingStatus = l.status;
+    reflectStatusButtons();
+    $("overlay").classList.add("show");
+    $("panel").classList.add("show");
+  }
+  function closePanel(){
+    $("overlay").classList.remove("show");
+    $("panel").classList.remove("show");
+    activeLockerId = null;
+  }
+  $("panelClose").addEventListener("click", closePanel);
+  $("overlay").addEventListener("click", closePanel);
+
+  function reflectStatusButtons(){
+    $("setOpenBtn").className = pendingStatus==="open" ? "sel-open" : "";
+    $("setTakenBtn").className = pendingStatus==="taken" ? "sel-taken" : "";
+  }
+  $("setOpenBtn").addEventListener("click", ()=>{ pendingStatus="open"; reflectStatusButtons(); });
+  $("setTakenBtn").addEventListener("click", ()=>{ pendingStatus="taken"; reflectStatusButtons(); });
+
+  $("comboEye").addEventListener("click", ()=>{
+    const inp = $("panelCombo");
+    const showing = inp.type === "text";
+    inp.type = showing ? "password" : "text";
+    $("comboEye").textContent = showing ? "👁" : "🙈";
+  });
+
+  $("panelSave").addEventListener("click", ()=>{
+    const l = lockers.find(x=>x.id===activeLockerId);
+    if (!l) return;
+    const before = JSON.stringify(l);
+    l.name = $("panelName").value.trim();
+    l.combo = $("panelCombo").value.trim();
+    l.section = $("panelSection").value.trim();
+    l.notes = $("panelNotes").value.trim();
+    l.status = pendingStatus;
+    if (JSON.stringify(l) !== before){ dirtyCount++; updateDirtyBanner(); }
+    closePanel();
+    render();
+  });
+
+  $("panelRelease").addEventListener("click", ()=>{
+    const l = lockers.find(x=>x.id===activeLockerId);
+    if (!l) return;
+    l.status = "open"; l.name=""; l.combo=""; l.notes="";
+    dirtyCount++; updateDirtyBanner();
+    closePanel();
+    render();
+  });
+
+  function updateDirtyBanner(){
+    $("dirtyCount").textContent = dirtyCount;
+    $("dirtyBanner").classList.toggle("show", dirtyCount>0);
+  }
+
+  // ---------- Export ----------
+  function exportData(){
+    const rows = lockers.map(l=>({
+      "Locker Number": l.number,
+      "Status": l.status === "open" ? "Open" : "Taken",
+      "Student Name": l.name,
+      "Combination": l.combo,
+      "Section": l.section,
+      "Notes": l.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lockers");
+    XLSX.writeFile(wb, "lockers-updated.xlsx");
+    dirtyCount = 0;
+    updateDirtyBanner();
+  }
+  $("exportBtn").addEventListener("click", exportData);
+  $("dirtyExportBtn").addEventListener("click", exportData);
+
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape"){ closePanel(); closeModal(); }
+  });
+})();
+</script>
+</body>
+</html>
