@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Full locker records — staff only, for both browsing and editing.
+    // Signed-in staff can list every locker and read/write any of them.
+    // Nobody else can list or read this collection at all.
+    match /lockers/{lockerNumber} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Public lookup index, keyed by PIN. A student who knows their exact
+    // PIN can fetch that one document (allow get). Nobody — staff or not —
+    // can list this collection and browse every PIN at once; only signed-in
+    // staff can write to it (locker-manager.html keeps it in sync
+    // automatically whenever a locker is saved or released).
+    match /pins/{pin} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locker Lookup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --steel-900:#1b1e22; --plate:#f7f4ea; --brass:#c8912f; --brass-deep:#9c6c1f;
+    --ink:#1b1e22; --paper:#f3f1e9; --rule:#d8d2c0; --danger:#a33d2f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100vh;}
+  body{background:var(--steel-900);color:var(--ink);font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{width:100%;max-width:380px;background:var(--plate);border-radius:14px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);padding:34px 30px;text-align:center;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--brass-deep);margin:0 0 6px;}
+  h1{font-family:'Oswald',sans-serif;text-transform:uppercase;font-weight:700;font-size:24px;margin:0 0 6px;}
+  .sub{color:#666;font-size:13px;margin:0 0 22px;line-height:1.6;}
+  .pin-input{width:100%;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:24px;letter-spacing:.35em;border:1px solid var(--rule);border-radius:9px;padding:15px;margin-bottom:14px;background:#fff;}
+  .pin-input:focus{outline:1px solid var(--brass);border-color:var(--brass);}
+  .btn{width:100%;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;border:1px solid var(--brass-deep);border-radius:8px;padding:13px;cursor:pointer;background:var(--brass);color:#2b1e05;}
+  .btn:hover{filter:brightness(1.05);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .error-msg{color:var(--danger);font-size:12.5px;min-height:18px;margin:0 0 6px;}
+  .result{width:100%;max-width:380px;background:var(--steel-900);color:var(--plate);border-radius:14px;padding:30px;text-align:center;display:none;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);}
+  .result .label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9a9f9f;margin-bottom:10px;}
+  .result .plate-big{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:34px;background:var(--plate);color:var(--ink);border-radius:7px;padding:8px 18px;display:inline-block;margin-bottom:16px;}
+  .result .combo-line{font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:.08em;margin:8px 0;}
+  .result .combo-line span{color:#9a9f9f;font-size:10.5px;letter-spacing:.12em;display:block;text-transform:uppercase;margin-bottom:4px;font-family:'Inter',sans-serif;}
+  .result .note{color:#c8ccc8;font-size:12.5px;margin-top:12px;}
+  .result .back{margin-top:20px;background:none;border:none;color:#9a9f9f;font-size:12.5px;cursor:pointer;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================
+  Uses the SAME Firebase project as locker-manager.html — paste the
+  identical firebaseConfig below. This page never needs a staff sign-in:
+  Firestore rules restrict it to reading exactly one document (the one
+  matching the PIN typed in), never the full list. See the rules Claude
+  gave you for how that's enforced.
+=================================================================== -->
+<div class="card" id="card">
+  <p class="eyebrow">Locker Room</p>
+  <h1>Enter Your PIN</h1>
+  <p class="sub">Look up your locker number and combination.</p>
+  <input class="pin-input" id="pinInput" inputmode="numeric" maxlength="8" placeholder="••••" autofocus>
+  <div class="error-msg" id="errorMsg"></div>
+  <button class="btn" id="submitBtn">View My Locker</button>
+</div>
+
+<div class="result" id="result"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ============ PASTE THE SAME FIREBASE CONFIG AS locker-manager.html ============
+  const firebaseConfig = {
+    apiKey: "AIzaSyBktpStKarIikkyMEwBL8rk4zQ3qo6jp1M",
+    authDomain: "locky-f5607.firebaseapp.com",
+    projectId: "locky-f5607",
+    storageBucket: "locky-f5607.firebasestorage.app",
+    messagingSenderId: "422929482829",
+    appId: "1:422929482829:web:2366680de9fd95d7074804"
+  };
+  // =================================================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const $ = id => document.getElementById(id);
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  async function doLookup(){
+    const pin = $("pinInput").value.trim();
+    $("errorMsg").textContent = "";
+    if (!pin){ $("errorMsg").textContent = "Enter your PIN."; return; }
+    $("submitBtn").disabled = true;
+    try{
+      const snap = await getDoc(doc(db, "pins", pin));
+      if (!snap.exists()){
+        $("errorMsg").textContent = "PIN not recognized. Check with your teacher or the front office.";
+        return;
+      }
+      const l = snap.data();
+      $("card").style.display = "none";
+      const box = $("result");
+      box.innerHTML = `
+        <div class="label">Your Locker</div>
+        <div class="plate-big">${escapeHtml(l.number)}</div>
+        <div class="combo-line"><span>Combination</span>${escapeHtml(l.combo || "Not set — ask staff")}</div>
+        ${l.section ? `<div class="combo-line"><span>Section</span>${escapeHtml(l.section)}</div>` : ""}
+        ${l.notes ? `<div class="note">${escapeHtml(l.notes)}</div>` : ""}
+        <button class="back" id="backBtn">Look up another PIN</button>
+      `;
+      box.style.display = "block";
+      $("backBtn").addEventListener("click", ()=>{
+        box.style.display = "none";
+        $("card").style.display = "block";
+        $("pinInput").value = "";
+        $("pinInput").focus();
+      });
+    }catch(err){
+      $("errorMsg").textContent = "Couldn't reach the database — check your connection.";
+      console.error(err);
+    }finally{
+      $("submitBtn").disabled = false;
+    }
+  }
+  $("submitBtn").addEventListener("click", doLookup);
+  $("pinInput").addEventListener("keydown", e=>{ if (e.key === "Enter") doLookup(); });
+</script>
+</body>
+</html>
