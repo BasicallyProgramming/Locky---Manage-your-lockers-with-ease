@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --steel-900: #1b1e22;
+  --steel-800: #262a2f;
+  --steel-700: #343940;
+  --plate: #f7f4ea;
+  --brass: #c8912f;
+  --brass-deep: #9c6c1f;
+  --moss: #3e6b52;
+  --moss-deep: #2c4d3b;
+  --paper: #f3f1e9;
+  --rule: #d8d2c0;
+  --danger: #a33d2f;
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--paper);
+  color: #1b1e22;
+}
