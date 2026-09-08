@@ -6,13 +6,14 @@ import { staff } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
+  const body = await req.json();
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const password = String(body.password ?? "");
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password required." }, { status: 400 });
   }
 
   const [account] = await db.select().from(staff).where(eq(staff.email, email)).limit(1);
-  if (!account) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
