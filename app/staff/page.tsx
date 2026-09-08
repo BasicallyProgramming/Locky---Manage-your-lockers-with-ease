@@ -265,15 +265,27 @@ function Panel({ locker, onClose, onSaved }: { locker: Locker | null; onClose: (
     }
   }
 
-  async function release() {
-    setSaving(true);
-    await fetch("/api/lockers", {
+async function release() {
+  setSaving(true);
+  setMsg("");
+  try {
+    const res = await fetch("/api/lockers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ number, name: "", combo: "", pin: null, status: "open", section, notes: "" }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMsg((data as any).error || "Release failed.");
+      return;
+    }
     onSaved();
+  } catch {
+    setMsg("Couldn't reach the server.");
+  } finally {
+    setSaving(false);
   }
+}
 
   return (
     <>
