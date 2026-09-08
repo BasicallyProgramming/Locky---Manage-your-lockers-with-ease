@@ -28,13 +28,21 @@ export async function POST(req: NextRequest) {
   // Chunk to keep each statement a reasonable size.
   const CHUNK = 200;
   try {
+  // Chunk to keep each statement a reasonable size.
+  const CHUNK = 200;
+  const CONCURRENCY = 25;
+  try {
     for (let i = 0; i < records.length; i += CHUNK) {
       const chunk = records.slice(i, i + CHUNK);
-      for (const record of chunk) {
-        await db
-          .insert(lockers)
-          .values(record)
-          .onConflictDoUpdate({ target: lockers.number, set: record });
+      for (let j = 0; j < chunk.length; j += CONCURRENCY) {
+        await Promise.all(
+          chunk.slice(j, j + CONCURRENCY).map((record) =>
+            db
+              .insert(lockers)
+              .values(record)
+              .onConflictDoUpdate({ target: lockers.number, set: record })
+          )
+        );
       }
     }
   } catch (err) {
