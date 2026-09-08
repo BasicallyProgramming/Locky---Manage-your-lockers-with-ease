@@ -27,9 +27,6 @@ export async function POST(req: NextRequest) {
 
   // Chunk to keep each statement a reasonable size.
   const CHUNK = 200;
-  try {
-  // Chunk to keep each statement a reasonable size.
-  const CHUNK = 200;
   const CONCURRENCY = 25;
   try {
     for (let i = 0; i < records.length; i += CHUNK) {

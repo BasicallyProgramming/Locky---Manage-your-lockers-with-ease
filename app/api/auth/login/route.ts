@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   const [account] = await db.select().from(staff).where(eq(staff.email, email)).limit(1);
+  if (!account) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
